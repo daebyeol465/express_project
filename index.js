@@ -163,3 +163,7 @@ app.get('/abc', (req, res) => {
 app.get('/users', (req, res) => {
     res.json(users);
     });
+
+app.get('/articles', (req, res) => {
+    res.json(articles);
+    });
