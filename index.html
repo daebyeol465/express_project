@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>게시판</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f7;
+            color: #1d1d1f;
+        }
+        h1 {
+            text-align: center;
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+        form {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 30px;
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        input, textarea {
+            padding: 12px;
+            font-size: 18px;
+            border: 1px solid #d2d2d7;
+            border-radius: 8px;
+        }
+        button {
+            background-color: #0071e3;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 18px;
+            padding: 12px;
+            border-radius: 8px;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background-color: #005bb5;
+        }
+        .article {
+            background: white;
+            padding: 20px;
+            margin-bottom: 15px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        .article h3 {
+            font-size: 22px;
+            margin-bottom: 8px;
+        }
+        .article p {
+            font-size: 18px;
+            color: #515154;
+        }
+        .article small {
+            display: block;
+            margin-top: 10px;
+            font-size: 14px;
+            color: #86868b;
+        }
+        .delete-button {
+            background-color: #ff4e4e;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .delete-button:hover {
+            background-color: #d12f2f;
+        }
+    </style>
+</head>
+<body>
+    <h1>게시판</h1>
+    <form id="articleForm">
+        <input type="text" id="title" placeholder="제목" required>
+        <textarea id="content" placeholder="내용" required></textarea>
+        <button type="submit">게시글 작성</button>
+    </form>
+    <div id="articles"></div>
+
+    <script>
+        // 게시글 목록을 가져오는 함수
+        async function fetchArticles() {
+            const response = await fetch('http://localhost:3000/articles');
+            const articles = await response.json();
+            
+            const articlesContainer = document.getElementById('articles');
+            articlesContainer.innerHTML = ''; // 기존 목록 초기화
+            
+            articles.reverse().forEach(article => {
+                const articleDiv = document.createElement('div');
+                articleDiv.classList.add('article');
+                articleDiv.innerHTML = `
+                    <h3>${article.title}</h3>
+                    <p>${article.content}</p>
+                    <small>${article.date}</small>
+                    <button class="delete-button" onclick="deleteArticle(${article.id})">삭제</button>
+                `;
+                articlesContainer.appendChild(articleDiv);
+            });
+        }
+
+        // 게시글 작성 함수
+        document.getElementById('articleForm').addEventListener('submit', async function(event) {
+            event.preventDefault();
+            const title = document.getElementById('title').value;
+            const content = document.getElementById('content').value;
+            
+            await fetch('http://localhost:3000/articles', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title, content, author_id: 1 })
+            });
+            
+            document.getElementById('title').value = '';
+            document.getElementById('content').value = '';
+            fetchArticles();
+        });
+
+        // 게시글 삭제 함수
+        async function deleteArticle(articleId) {
+            const response = await fetch(`http://localhost:3000/articles/${articleId}`, {
+                method: 'DELETE'
+            });
+            if (response.ok) {
+                fetchArticles(); // 게시글 목록 새로 고침
+            } else {
+                alert('게시글 삭제에 실패했습니다.');
+            }
+        }
+
+        // 페이지 로드 시 게시글 목록 가져오기
+        fetchArticles();
+    </script>
+</body>
+</html>

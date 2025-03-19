@@ -1,5 +1,10 @@
 const express = require('express');
 const app = express();
+
+const cors = require('cors');
+app.use(cors());
+
+app.use(express.json())
 const PORT = 3000;
 
 const users =  [
@@ -190,6 +195,34 @@ app.get('/post', (req, res)=>{
 //     }
 //     res.send('not found 404')
 //     });
+
+app.delete('/articles/:id', (req, res) => {
+  let article_id = parseInt(req.params.id);
+  
+  let index = articles.findIndex(article => article.id === article_id);
+  
+  if (index === -1) {
+      return res.status(404).json({ message: "게시글을 찾을 수 없습니다." });
+  }
+
+  articles.splice(index, 1);
+  
+  return res.json({ message: "게시글이 삭제되었습니다." });
+});
+
+app.post('/articles', (req, res) => {
+  let data = req.body
+
+  let lastId = articles[articles.length - 1].id
+  console.log(lastId)
+  data["id"] = lastId + 1
+
+  const now = new Date().toISOString().slice(0,19) + 'Z';
+  data.date = now;
+
+  articles.push(data)
+  return res.json("ok")
+});
 
 app.get('/articles/:id', (req, res) => {
     let article_id = req.params.id
