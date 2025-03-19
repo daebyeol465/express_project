@@ -210,6 +210,13 @@ app.delete('/articles/:id', (req, res) => {
   return res.json({ message: "게시글이 삭제되었습니다." });
 });
 
+app.put('articles/:id',(req,res) =>{
+  let article_id = req.params.id - 1
+  let data = req.body
+
+  articles[article_id] = data
+})
+
 app.post('/articles', (req, res) => {
   let data = req.body
 
