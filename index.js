@@ -37,7 +37,17 @@ app.get('/articles', (req, res) => {
     });
   });
 
-app.get('/articles/:id', (req, res) => {
+  app.get('/articles/:id', (req, res) => {
+    let id = req.params.id;
   
-    res.send("ㅇㅋㅇㅋ")
-});
+    db.get(`SELECT * FROM articles WHERE id = ?`, [id], (err, row) => {
+      if (err) {
+        return res.status(500).json({error: err.message});
+      }
+      if (!row) {
+        return res.status(404).json({error: "데이터가 없습니다."});
+      }
+      res.json(row);
+    });
+  });
+  
