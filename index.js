@@ -27,3 +27,17 @@ app.post("/articles", (req, res)=>{
       res.json({id: this.lastID, title, content});
     });
 });
+
+app.get('/articles', (req, res) => {
+    db.all(`SELECT * FROM articles`, [], (err, rows) => {
+      if (err) {
+        return res.status(500).json({error: err.message});
+      }
+      res.json(rows);
+    });
+  });
+
+app.get('/articles/:id', (req, res) => {
+  
+    res.send("ㅇㅋㅇㅋ")
+});
