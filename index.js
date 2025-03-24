@@ -80,6 +80,36 @@ app.put('/articles/:id', (req, res)=>{
 
 })
 
-app.post("/articles:id/comment", (req,res)=>{
-  
-})
+app.post("/articles/:id/comment", (req, res) => {
+  console.log('dfsdfdsf')
+    let articleId = req.params.id;
+    let content = req.body.content;
+
+    if (!content) {
+        return res.status(400).json({ error: "Content is required" });
+    }
+
+    db.run(
+        "INSERT INTO comments (content, article_id, created_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
+        [content, articleId],
+        function (err) {
+            if (err) {
+                return res.status(500).json({ error: err.message });
+            }
+            res.json({ 
+                message: "Comment added successfully", 
+                comment_id: this.lastID 
+            });
+        }
+    );
+});
+
+app.get("/articles/:id/comment", (req, res) => {
+  let articleId = req.params.id;
+  db.all("SELECT * FROM comments WHERE article_id = ?", [articleId], (err, rows) => {
+      if (err) {
+          return res.status(500).json({ error: err.message });
+      }
+      res.json(rows);
+  });
+});
