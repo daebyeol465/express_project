@@ -81,7 +81,6 @@ app.put('/articles/:id', (req, res)=>{
 })
 
 app.post("/articles/:id/comment", (req, res) => {
-  console.log('dfsdfdsf')
     let articleId = req.params.id;
     let content = req.body.content;
 
@@ -113,3 +112,48 @@ app.get("/articles/:id/comment", (req, res) => {
       res.json(rows);
   });
 });
+
+app.post("/users", (req, res) => {
+  let { email, password } = req.body;
+
+    if (!email || !password) {
+        return res.status(400).json({ error: "Email and password are required" });
+    }
+
+    // 데이터베이스에 저장
+    db.run("INSERT INTO users (email, password) VALUES (?, ?)", [email, password], function (err) {
+        if (err) {
+            if (err.message.includes("UNIQUE constraint failed")) {
+                return res.status(400).json({ error: "Email already in use" });
+            }
+            return res.status(500).json({ error: err.message });
+        }
+        res.json({ message: "User registered successfully", user_id: this.lastID });
+    });
+
+})
+
+app.post("/login", (req,res) => {
+  let { email, password } = req.body;
+
+    if (!email || !password) {
+        return res.status(400).json({ error: "Email and password are required" });
+    }
+
+    // 이메일 확인
+    db.get("SELECT * FROM users WHERE email = ?", [email], (err, user) => {
+        if (err) {
+            return res.status(500).json({ error: err.message });
+        }
+        if (!user) {
+            return res.status(404).json({ error: "이메일이 존재하지 않습니다." });
+        }
+
+        // 비밀번호 확인
+        if (user.password !== password) {
+            return res.status(400).json({ error: "비밀번호가 틀립니다." });
+        }
+
+        res.json({ message: "로그인 성공", user_id: user.id });
+    });
+})

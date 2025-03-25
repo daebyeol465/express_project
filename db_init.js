@@ -1,10 +1,24 @@
-const sqlite3 = require('sqlite3').verbose();
-
 // SQLite DB 연결
+const sqlite3 = require('sqlite3').verbose();
 const db = new sqlite3.Database('./database.db');
 
 // 테이블 준비 함수
 function initDB() {
+  db.run(`
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      email TEXT UNIQUE NOT NULL,
+      password TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `, (err) => {
+    if (err) {
+      console.error("테이블 생성 에러(users):", err);
+    } else {
+      console.log("테이블 준비 완료(users)");
+    }
+  });
+
   db.run(`
     CREATE TABLE IF NOT EXISTS articles (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
