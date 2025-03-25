@@ -7,6 +7,12 @@ app.use(cors());
 app.use(express.json())
 const PORT = 3000;
 
+const bcrypt = require('bcrypt'); // bcrypt 모듈 추가
+const saltRounds = 10;
+
+const jwt = require('jsonwebtoken'); // JWT 모듈 추가
+const SECRET_KEY = "your_secret_key";
+
 const sqlite3 = require('sqlite3').verbose();
 
 const db = new sqlite3.Database('./database.db');
@@ -15,19 +21,34 @@ app.listen(PORT, () => {
     console.log(`서버가 http://localhost:${PORT} 에서 실행 중입니다.`);
   });
   
-app.post("/articles", (req, res)=>{
-    let {title, content} = req.body;
+app.post("/articles", (req, res) => {
+  // 토큰 확인
+  const authHeader = req.headers.authorization;
+  if (!authHeader) {
+    return res.status(401).json({ error: "인증 토큰이 필요합니다." });
+  }
 
-    db.run(`INSERT INTO articles (title, content) VALUES (?, ?)`,
-    [title, content],
-    function(err) {
-      if (err) {
-        return res.status(500).json({error: err.message});
+  const token = authHeader.split(' ')[1];
+  jwt.verify(token, SECRET_KEY, (err, decoded) => {
+    if (err) {
+      return res.status(401).json({ error: "유효하지 않은 토큰입니다." });
+    }
+
+    // 인증 성공 -> 게시글 작성 처리
+    const { title, content } = req.body;
+
+    db.run(
+      `INSERT INTO articles (title, content) VALUES (?, ?)`,
+      [title, content],
+      function (err) {
+        if (err) {
+          return res.status(500).json({ error: err.message });
+        }
+        res.json({ id: this.lastID, title, content });
       }
-      res.json({id: this.lastID, title, content});
-    });
-});
-
+    );
+  });
+})
 app.get('/articles', (req, res) => {
     db.all(`SELECT * FROM articles`, [], (err, rows) => {
       if (err) {
@@ -116,44 +137,72 @@ app.get("/articles/:id/comment", (req, res) => {
 app.post("/users", (req, res) => {
   let { email, password } = req.body;
 
-    if (!email || !password) {
-        return res.status(400).json({ error: "Email and password are required" });
-    }
+  if (!email || !password) {
+      return res.status(400).json({ error: "Email and password are required" });
+  }
 
-    // 데이터베이스에 저장
-    db.run("INSERT INTO users (email, password) VALUES (?, ?)", [email, password], function (err) {
-        if (err) {
-            if (err.message.includes("UNIQUE constraint failed")) {
-                return res.status(400).json({ error: "Email already in use" });
-            }
-            return res.status(500).json({ error: err.message });
-        }
-        res.json({ message: "User registered successfully", user_id: this.lastID });
-    });
+  // 비밀번호 해싱 후 저장
+  bcrypt.hash(password, saltRounds, (err, hash) => {
+      if (err) {
+          return res.status(500).json({ error: "Password encryption failed" });
+      }
 
-})
+      db.run("INSERT INTO users (email, password) VALUES (?, ?)", [email, hash], function (err) {
+          if (err) {
+              if (err.message.includes("UNIQUE constraint failed")) {
+                  return res.status(400).json({ error: "Email already in use" });
+              }
+              return res.status(500).json({ error: err.message });
+          }
+          res.json({ message: "User registered successfully", user_id: this.lastID });
+      });
+  });
+});
 
-app.post("/login", (req,res) => {
+app.post("/login", (req, res) => {
   let { email, password } = req.body;
 
-    if (!email || !password) {
-        return res.status(400).json({ error: "Email and password are required" });
+  if (!email || !password) {
+      return res.status(400).json({ error: "Email and password are required" });
+  }
+
+  // 이메일 확인
+  db.get("SELECT * FROM users WHERE email = ?", [email], (err, user) => {
+      if (err) {
+          return res.status(500).json({ error: err.message });
+      }
+      if (!user) {
+          return res.status(404).json({ error: "이메일이 존재하지 않습니다." });
+      }
+
+      // 비밀번호 확인 (해싱된 값과 비교)
+      bcrypt.compare(password, user.password, (err, result) => {
+          if (err) {
+              return res.status(500).json({ error: "Password verification failed" });
+          }
+          if (!result) {
+              return res.status(400).json({ error: "비밀번호가 틀립니다." });
+          }
+
+          // JWT 토큰 생성
+          const token = jwt.sign({ user_id: user.id, email: user.email }, SECRET_KEY, { expiresIn: "1h" });
+
+          res.json({ message: "로그인 성공", token });
+      });
+  });
+});
+
+app.get('/logintest', (req, res)=>{
+  console.log(req.headers.authorization.split(' ')[1])
+  let token = req.headers.authorization.split(' ')[1]
+
+
+  jwt.verify(token, SECRET_KEY, (err, decoded)=>{
+    if(err){
+      return res.send("에러!!!")
     }
 
-    // 이메일 확인
-    db.get("SELECT * FROM users WHERE email = ?", [email], (err, user) => {
-        if (err) {
-            return res.status(500).json({ error: err.message });
-        }
-        if (!user) {
-            return res.status(404).json({ error: "이메일이 존재하지 않습니다." });
-        }
+    return res.send('로그인 성공!')
 
-        // 비밀번호 확인
-        if (user.password !== password) {
-            return res.status(400).json({ error: "비밀번호가 틀립니다." });
-        }
-
-        res.json({ message: "로그인 성공", user_id: user.id });
-    });
+  })
 })
