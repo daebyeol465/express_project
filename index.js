@@ -38,42 +38,52 @@ function authMiddleware(req, res, next) {
     next(); // 다음 미들웨어 or 라우터로
   });
 }
+
 app.listen(PORT, () => {
     console.log(`서버가 http://localhost:${PORT} 에서 실행 중입니다.`);
   });
   
 app.post("/articles", authMiddleware, (req, res) => {
-    const { title, content } = req.body;
-
-    db.run(
-      `INSERT INTO articles (title, content) VALUES (?, ?)`,
-      [title, content],
-      function (err) {
-        if (err) {
-          return res.status(500).json({ error: err.message });
-        }
-        res.json({ id: this.lastID, title, content });
-      }
-    );
-  });
-app.get('/articles', (req, res) => {
-    db.all(`SELECT * FROM articles`, [], (err, rows) => {
+  const { title, content } = req.body;
+  const user_id = req.user.user_id; // 로그인한 유저의 ID
+  db.run(
+    `INSERT INTO articles (title, content, user_id) VALUES (?, ?, ?)`,
+    [title, content, user_id],
+    function (err) {
       if (err) {
-        return res.status(500).json({error: err.message});
+        return res.status(500).json({ error: err.message });
       }
-      res.json(rows);
-    });
+      res.json({ id: this.lastID, title, content, user_id });
+    }
+  );
+});
+app.get('/articles', (req, res) => {
+  db.all(`
+    SELECT articles.*, users.email 
+    FROM articles 
+    JOIN users ON articles.user_id = users.id
+  `, [], (err, rows) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    res.json(rows);
   });
+});
 
 app.get('/articles/:id', (req, res) => {
   let id = req.params.id;
 
-  db.get(`SELECT * FROM articles WHERE id = ?`, [id], (err, row) => {
+  db.get(`
+    SELECT articles.*, users.email 
+    FROM articles 
+    JOIN users ON articles.user_id = users.id
+    WHERE articles.id = ?
+  `, [id], (err, row) => {
     if (err) {
-      return res.status(500).json({error: err.message});
+      return res.status(500).json({ error: err.message });
     }
     if (!row) {
-      return res.status(404).json({error: "데이터가 없습니다."});
+      return res.status(404).json({ error: "데이터가 없습니다." });
     }
     res.json(row);
   });
@@ -109,31 +119,38 @@ app.put('/articles/:id', authMiddleware, (req, res)=>{
 })
 
 app.post("/articles/:id/comment", authMiddleware, (req, res) => {
-    let articleId = req.params.id;
-    let content = req.body.content;
+  let articleId = req.params.id;
+  let content = req.body.content;
+  let user_id = req.user.user_id; // 로그인한 유저의 ID
 
-    if (!content) {
-        return res.status(400).json({ error: "Content is required" });
-    }
+  if (!content) {
+      return res.status(400).json({ error: "Content is required" });
+  }
 
-    db.run(
-        "INSERT INTO comments (content, article_id, created_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
-        [content, articleId],
-        function (err) {
-            if (err) {
-                return res.status(500).json({ error: err.message });
-            }
-            res.json({ 
-                message: "Comment added successfully", 
-                comment_id: this.lastID 
-            });
-        }
-    );
+  db.run(
+      "INSERT INTO comments (content, article_id, user_id, created_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)",
+      [content, articleId, user_id],
+      function (err) {
+          if (err) {
+              return res.status(500).json({ error: err.message });
+          }
+          res.json({ 
+              message: "Comment added successfully", 
+              comment_id: this.lastID 
+          });
+      }
+  );
 });
 
 app.get("/articles/:id/comment", (req, res) => {
   let articleId = req.params.id;
-  db.all("SELECT * FROM comments WHERE article_id = ?", [articleId], (err, rows) => {
+  
+  db.all(`
+    SELECT comments.*, users.email 
+    FROM comments 
+    JOIN users ON comments.user_id = users.id 
+    WHERE comments.article_id = ?
+  `, [articleId], (err, rows) => {
       if (err) {
           return res.status(500).json({ error: err.message });
       }
