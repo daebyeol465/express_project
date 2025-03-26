@@ -89,34 +89,64 @@ app.get('/articles/:id', (req, res) => {
   });
 });
 
-app.delete("/articles/:id", authMiddleware, (req, res)=>{
-  const id = req.params.id
-  db.run('DELETE FROM articles WHERE id = ?', [id], function (err) {
+app.delete("/articles/:id", authMiddleware, (req, res) => {
+  const id = req.params.id;
+  const requestUserId = req.user.user_id; // Get the logged-in user's ID
+
+  // First, check if the article exists and belongs to the logged-in user
+  db.get('SELECT * FROM articles WHERE id = ?', [id], (err, article) => {
     if (err) {
-        console.error('Error deleting article:', err.message);
-    } else {
-        console.log(`Article with id ${id} deleted successfully`);
+      return res.status(500).json({ error: err.message });
     }
+    if (!article) {
+      return res.status(404).json({ error: "게시글을 찾을 수 없습니다." });
+    }
+
+    // Check if the logged-in user is the author of the article
+    if (article.user_id !== requestUserId) {
+      return res.status(403).json({ error: "본인의 글만 삭제할 수 있습니다." });
+    }
+
+    // Proceed with deleting the article if it belongs to the user
+    db.run('DELETE FROM articles WHERE id = ?', [id], function (err) {
+      if (err) {
+        return res.status(500).json({ error: err.message });
+      }
+      res.json({ message: '게시글이 삭제되었습니다.' });
+    });
+  });
 });
-})
 
-app.put('/articles/:id', authMiddleware, (req, res)=>{
-  let id = req.params.id
-  // let title = req.body.title
-  // let content = req.body.content
-  let {title, content} = req.body
- // SQL 업데이트 쿼리 (파라미터 바인딩 사용)
- const sql = 'UPDATE articles SET title = ?, content = ? WHERE id = ?';
- db.run(sql, [title, content, id], function(err) {
-   if (err) {
-     console.error('업데이트 에러:', err.message);
-     return res.status(500).json({ error: err.message });
-   }
-   // this.changes: 영향을 받은 행의 수
-   res.json({ message: '게시글이 업데이트되었습니다.', changes: this.changes });
- });
+app.put('/articles/:id', authMiddleware, (req, res) => {
+  const id = req.params.id;
+  const { title, content } = req.body;
+  const requestUserId = req.user.user_id; // Get the logged-in user's ID
 
-})
+  // First, check if the article exists and belongs to the logged-in user
+  db.get('SELECT * FROM articles WHERE id = ?', [id], (err, article) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    if (!article) {
+      return res.status(404).json({ error: "게시글을 찾을 수 없습니다." });
+    }
+
+    // Check if the logged-in user is the author of the article
+    if (article.user_id !== requestUserId) {
+      return res.status(403).json({ error: "본인의 글만 수정할 수 있습니다." });
+    }
+
+    // Proceed with updating the article if it belongs to the user
+    const sql = 'UPDATE articles SET title = ?, content = ? WHERE id = ?';
+    db.run(sql, [title, content, id], function (err) {
+      if (err) {
+        console.error('업데이트 에러:', err.message);
+        return res.status(500).json({ error: err.message });
+      }
+      res.json({ message: '게시글이 업데이트되었습니다.', changes: this.changes });
+    });
+  });
+});
 
 app.post("/articles/:id/comment", authMiddleware, (req, res) => {
   let articleId = req.params.id;
